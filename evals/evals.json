@@ -1,0 +1,23 @@
+{
+  "skill_name": "immigration-doc-translate",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "使用移民文件翻译skill。术语表：申请人→Applicant，移民局→Immigration Bureau，技术成果→Technical Achievement，专利号→Patent Number。翻译文档：各位专家好，我是一名申请人，申请移民局的技术成果认定。我的专利号是CN123456。现在提交所有材料供审查。",
+      "expected_output": "英文docx文档，包含所有术语正确翻译，Times New Roman 12pt",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "使用移民文件翻译skill。术语表：申请人→Applicant，项目名称→Project Name。翻译文档包含格式测试：标黄的【重要内容】、划线的次要内容、加粗的关键信息。请保留所有格式翻译成英文。输出到桌面。",
+      "expected_output": "英文docx，标黄/划线/加粗格式完全保留，术语正确替换",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "使用移民文件翻译skill。术语表：技术成果名称V1.0→Technical Achievement Name V1.0，认定→Certification，材料→Documents。翻译文档：技术成果名称V1.0认定申请材料包括：1）盖章的申请表 2）签名的声明书 3）《移民指南》参考资料。请保留所有特殊格式和样式。输出到桌面。",
+      "expected_output": "英文docx，版本号放最后，盖章→(Seal)，签名→(Signature)，书名斜体",
+      "files": []
+    }
+  ]
+}
