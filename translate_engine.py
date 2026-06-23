@@ -141,6 +141,63 @@ def normalize_quotes(s: str) -> str:
     return ''.join(result)
 
 
+# ============================================================
+# Chinese date conversion — convert before translation
+# ============================================================
+MONTH_NAMES = [
+    '', 'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+_FULL_DATE_RE = re.compile(r'(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日')
+_YEAR_MONTH_RE = re.compile(r'(\d{4})\s*年\s*(\d{1,2})\s*月(?!\s*\d)')
+_MONTH_DAY_RE = re.compile(r'(?<!\d)(\d{1,2})\s*月\s*(\d{1,2})\s*日')
+
+
+def convert_chinese_dates(text: str) -> str:
+    """Convert Chinese date expressions to English format.
+
+    2025年10月22日 → October 22, 2025
+    2025年10月    → October 2025
+    10月22日      → October 22
+    """
+    def _full(m): return f"{MONTH_NAMES[int(m.group(2))]} {int(m.group(3))}, {m.group(1)}"
+    def _ym(m):   return f"{MONTH_NAMES[int(m.group(2))]} {m.group(1)}"
+    def _md(m):   return f"{MONTH_NAMES[int(m.group(1))]} {int(m.group(2))}"
+
+    result = _FULL_DATE_RE.sub(_full, text)
+    result = _YEAR_MONTH_RE.sub(_ym, result)
+    result = _MONTH_DAY_RE.sub(_md, result)
+    return result
+
+
+# ============================================================
+# Mechanical error cleanup — deterministic fixes
+# ============================================================
+def clean_mechanical_errors(text: str) -> str:
+    """Fix deterministic typos: duplicated chars/words, missing spaces,
+    parenthesis merging, apostrophe merging."""
+    if not text:
+        return text
+    # 3+ consecutive identical chars
+    result = re.sub(r'(\w)\1{2,}', r'\1', text)
+    # Duplicated whole word
+    result = re.sub(r'\b(\w+)\s+\1\b', r'\1', result)
+    # lowercase→UPPERCASE word boundary
+    result = re.sub(r'([a-z])([A-Z])', r'\1 \2', result)
+    # Punctuation without trailing space
+    result = re.sub(r'([.,;:!?])([A-Za-z])', r'\1 \2', result)
+    # Word before opening paren
+    result = re.sub(r'(\w)\(', r'\1 (', result)
+    # Closing paren before word
+    result = re.sub(r'\)(\w)', r') \1', result)
+    # Apostrophe-s merging
+    result = re.sub(r"([a-zA-Z])'s([A-Z])", r"\1's \2", result)
+    # Double spaces
+    result = re.sub(r' {2,}', ' ', result)
+    return result
+
+
 def load_glossary(xlsx_path: str) -> dict:
     """Load terminology from Excel glossary file."""
     import openpyxl
@@ -181,11 +238,14 @@ def build_matcher(glossary: dict) -> list:
 def translate_text(text: str, matcher: list) -> tuple:
     """
     Apply longest-match term replacement.
+    Pre-processes Chinese dates, post-processes for mechanical errors.
     Returns: (translated_text, list_of_unmatched_chinese_terms)
     """
     if not text:
         return text, []
 
+    # Pre-process: convert Chinese dates before term matching
+    text = convert_chinese_dates(text)
     text = normalize_quotes(text)
     result = text
     i = 0
@@ -209,6 +269,9 @@ def translate_text(text: str, matcher: list) -> tuple:
                 break
         if not matched:
             i += 1
+
+    # Post-process: clean mechanical errors
+    result = clean_mechanical_errors(result)
 
     unmatched = list(dict.fromkeys(re.findall(r'[一-龿]{2,}', result)))
     return result, unmatched
@@ -311,6 +374,42 @@ def replace_runs_in_place(para, matcher: list):
 
         _strip_shading(rPr)
         _force_tnr_12pt(rPr)
+
+    # ── Cross-run dedup & spacing normalization ─────────────────
+    prev_text = None
+    prev_t_elem = None
+    for r in p_elem.findall(qn('w:r')):
+        t_curr = r.find(qn('w:t'))
+        if t_curr is None:
+            continue
+        curr_text = t_curr.text or ''
+        if not curr_text.strip():
+            continue
+
+        if prev_text is not None and prev_t_elem is not None:
+            prev_words = prev_text.rstrip().split()
+            curr_words = curr_text.lstrip().split()
+
+            # Dedup boundary words
+            if prev_words and curr_words and (
+                prev_words[-1].strip('.,;:!?').lower()
+                == curr_words[0].strip('.,;:!?').lower()
+            ):
+                curr_text = ' '.join(curr_words[1:])
+                if curr_text:
+                    curr_text = ' ' + curr_text
+                t_curr.text = curr_text
+
+            # Spacing: alnum→alnum or punctuation→letter
+            if ((curr_text and prev_text[-1].isalnum() and curr_text[0].isalnum()
+                 and curr_text[0] not in ('-',))
+                or (curr_text and prev_text[-1] in ('.', ',', ':', ';', '!', '?', ')')
+                    and curr_text[0].isalpha())):
+                curr_text = ' ' + curr_text
+                t_curr.text = curr_text
+
+        prev_text = curr_text if curr_text else prev_text
+        prev_t_elem = t_curr
 
 
 def clear_and_set_text(para, new_text, force_font=True):
@@ -449,7 +548,7 @@ def clear_and_set_text(para, new_text, force_font=True):
 
     t_elem = etree.SubElement(new_run, qn('w:t'))
     t_elem.set(qn('xml:space'), 'preserve')
-    t_elem.text = new_text
+    t_elem.text = clean_mechanical_errors(new_text)
     p_elem.append(new_run)
 
 

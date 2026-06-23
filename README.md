@@ -16,6 +16,10 @@ Once installed, the skill auto-triggers when you say phrases like "翻译文件"
 - **Format preservation**: Retains yellow highlight, bold, underline, strikethrough, borders, alignment
 - **Background cleanup**: Removes gray/patterned shading (shading causes artifacts when scanned by official authorities)
 - **Font enforcement**: Forces Times New Roman 12pt, double line spacing for body, single spacing for tables
+- **Date conversion**: Automatically converts Chinese dates (年月日) to standard English format (Month Day, Year)
+- **Mechanical error cleanup**: Regex-based detection and repair of typos, merged words, missing spaces, duplicated words across run boundaries
+- **Cross-run dedup**: Handles per-run formatting splits that cause word boundary duplicates (e.g. "University" + "University")
+- **Post-translation proofreading**: Built-in quality review step checking grammar, word choice, sentence flow, and translationese
 - **Quote normalization**: Unifies straight/curly quotes to avoid lookup mismatches
 - **OCR error detection**: Catches common OCR misreadings (e.g. `203年` → `2023年`)
 - **Mixed-cell translation**: Handles tables with partially translated Chinese-English content

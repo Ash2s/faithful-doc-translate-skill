@@ -84,6 +84,27 @@ Python 实践：统一使用单引号 `'...'` 包裹字典 key，内部用弯引
 
 翻译完成后，对输出文档调用 `fix_cn_labels(doc)` 进行段落级替换（检测 `para.text.strip()` 完整字符串，不按 run 匹配）。此函数已内置在 `translate_engine.py` 中。
 
+#### 3.4 日期预处理
+
+**中文日期必须整体转换为英文格式，禁止逐字直译。**
+
+使用 `convert_chinese_dates()` 对所有待翻译文本做预处理：
+- `2025年10月22日` → `October 22, 2025`
+- `2025年10月` → `October 2025`
+- `10月22日` → `October 22`
+
+`translate_text()` 内部已自动调用此函数。Claude 翻译正文时也应在翻译前自行检查并处理中文日期，**禁止产出 "2025 October 22 day" 或 "2025Year10Month22Day" 等中式直译**。
+
+#### 3.5 机械错误预防
+
+`clean_mechanical_errors()` 已内置在 `translate_text()` 和 `clear_and_set_text()` 中，自动修复：
+- 拼写重复（`decdecision` → `decision`）
+- 单词粘连（`ImprovementResearch` → `Improvement Research`）
+- 标点缺空格（`climate.trend` → `climate. trend`）
+- 重复词（`University University` → `University`）
+
+Claude 翻译正文时同样需要避免这些机械错误。
+
 ### 第四步：翻译与格式应用
 
 #### 4.1 术语匹配策略
@@ -195,7 +216,29 @@ Python 实践：统一使用单引号 `'...'` 包裹字典 key，内部用弯引
 
 **不能省略此步骤。** 中文残留可能来自引号不匹配、段落拆分、OCR 误差等多类原因，肉眼难以发现。
 
-### 第六步：输出文档
+### 第六步：翻译后审核校对
+
+残留中文检查通过后，对译文进行**逐段英文质量审核**。目标是让译文读起来像自然、流畅的学术英语，而非机器直译。
+
+**审核检查清单：**
+
+| 类别 | 检查项 | 示例 |
+|---|---|---|
+| 语法 | 主谓一致、时态一致、冠词缺失 | `the project include three part` → `the project includes three parts` |
+| 用词 | 搭配不当、中式选词 | `put forward` → `proposed` / `introduced` |
+| 句式 | 杂糅句、逗号拼接、缺少连接词 | 拆分超长句或合并过短句 |
+| 翻译腔 | 逐字对应、中文语序直译 | `has very important meaning` → `is of significant importance` |
+| 机械错误 | 重复字母、粘连词、标点缺空格 | 见第三步 3.5 节的列表 |
+| 日期格式 | 中文日期未转换 | `2025年10月` → 必须为 `October 2025` |
+
+**处理方式：** 对每段译文逐一检查，发现问题直接修改。不要输出"发现 X 个问题请确认"——作为翻译审校，直接给出修正后的最终版本才是完整交付。
+
+**特别注意——策略B的完整英文质量：** 使用策略B翻译的叙述性文本（法律条文、技术描述等）是质量审核的重中之重，因为这些内容是审阅者判断英文水平的依据。必须逐句确认：
+1. 没有中文直译痕迹（如 "in the condition of" 替代 "under"）
+2. 句子之间有自然的逻辑连接（however, therefore, furthermore）
+3. 专业术语统一（同一概念全文档用同一个英文词）
+
+### 第七步：输出文档
 
 - 格式：.docx
 - 文件名：`原文名_EN.docx`
